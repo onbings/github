@@ -1,0 +1,92 @@
+#https://www.docker.com/blog/docker-github-actions/
+#https://stackoverflow.com/questions/60735334/github-continuous-integration-cmake-c
+#https://dev.to/mihinduranasinghe/using-docker-containers-in-jobs-github-actions-3eof
+
+name: BuildPublishDockerFile
+
+on: 
+  push:
+#    tags:
+#    - "v*.*.*"
+    
+  pull_request:
+  
+jobs:
+
+     
+  build-googletest:
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        BUILD_TYPE: [Debug] #, Release]
+        #container: ['debian:stretch']  
+        
+    env:
+      BUILD_TYPE: ${{matrix.BUILD_TYPE}}
+      ARTIFACT: DESKTOP_LINUX64@DebianBuilder@1.8.0.test@GNU_9.3.0
+        
+    steps:
+    
+    - name: Checkout Onbings Docker file into project tree
+      uses: actions/checkout@v2
+      with:
+        repository: onbings/docker
+        path: docker           
+
+    #- name: Build env image
+    #  run: docker build --target=env --tag project:env -f docker/DebianStretchBuilder.dockerfile . 
+    #- name: Build devel image
+    #  run: docker build --target=devel --tag project:devel -f docker/DebianStretchBuilder.dockerfile . 
+    #- name: Build build image
+    #  run: docker build --target=build --tag project:build -f docker/DebianStretchBuilder.dockerfile . 
+    #  #docker run --rm --init -t --name test project:build cmake --build build --target test
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@master      
+      id: buildx
+      #with:
+      #  install: true      
+
+    - name: Build
+      run: |
+        docker build . # will run buildx      
+        
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+        
+    - name: Login to DockerHub
+      uses: docker/login-action@v1 
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+     
+    - name: Build and push docker image
+      id: docker_build
+      uses: docker/build-push-action@v2
+      with:
+        context: ./
+        file: docker/DebianStretchBuilder.dockerfile
+        builder: ${{ steps.buildx.outputs.name }}
+        push: true
+        tags: onbings/debian_stretch_builder:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache      
+       
+    - name: Docker Image digest
+      run: echo ${{ steps.docker_build.outputs.digest }}     
+      
+ 
+ #   - name: Upload Artifact on GitHub
+ #     uses: actions/upload-artifact@v2
+ #     with: 
+ #         name: ${{env.ARTIFACT}}
+ #         path: build/install
