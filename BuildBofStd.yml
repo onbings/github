@@ -2,7 +2,7 @@
 #https://stackoverflow.com/questions/60735334/github-continuous-integration-cmake-c
 #https://dev.to/mihinduranasinghe/using-docker-containers-in-jobs-github-actions-3eof
 
-name: BuildGoogleTest
+name: BuildBofStd
 
 on: 
   # Triggers the workflow on push or pull request events but only for the main branch
@@ -14,7 +14,7 @@ on:
 #    - "v*.*.*"
  
 jobs:
-  build-googletest:
+  build-bofstd:
     # The CMake configure and build commands are platform agnostic and should work equally 
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
@@ -29,11 +29,11 @@ jobs:
   
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true' #to be able to execute echo ::set-env name=  The `set-env` command is disabled. Please upgrade to using Environment Files or opt into unsecure command execution by setting the `ACTIONS_ALLOW_UNSECURE_COMMANDS`
-      BUILD_PACKAGE_NAME: GTest
-      BUILD_PACKAGE_VERSION: 1.8.0.5dadbab
+      BUILD_PACKAGE_NAME: bofstd
+      BUILD_PACKAGE_VERSION: 4.2.2.bha
       BUILD_PACKAGE_COMPILER: GNU_6.3.0 # GNU_9.3.0
       BUILD_TYPE: ${{matrix.BUILD_TYPE}}
-      BUILD_BIN_DIR:  /__w/googletest/googletest/build/${{matrix.BUILD_TYPE}} #${{ github.workspace }}/build/${{matrix.BUILD_TYPE}} #can't do this at that level .... BUILD_BIN_DIR: $BUILD_ROOT/build/$BUILD_TYPE
+      BUILD_BIN_DIR:  /__w/bofstd/bofstd/build/${{matrix.BUILD_TYPE}} #${{ github.workspace }}/build/${{matrix.BUILD_TYPE}} #can't do this at that level .... BUILD_BIN_DIR: $BUILD_ROOT/build/$BUILD_TYPE
 #      BUILD_BIN_DIR:  ${{ github.workspace }}/build/${{matrix.BUILD_TYPE}} #can't do this at that level .... BUILD_BIN_DIR: $BUILD_ROOT/build/$BUILD_TYPE
       BUILD_PACKAGE_TARGET:  ${{matrix.BUILD_TARGET}}  
 
@@ -45,9 +45,16 @@ jobs:
   #        password: ${{secrets.DOCKER_HUB_ACCESS_TOKEN}}
         
     steps:
-    - name: Checkout googletest source
+    - name: First, checkout bofstd source
       uses: actions/checkout@v2 
-        
+      
+    - name: Then checkout cmake support
+      uses: actions/checkout@v2     
+      with:
+        repository: onbings/cmake
+        #token: ${{ secrets.GitHub_PAT }} # `GitHub_PAT` is a secret that contains your PAT
+        path: cmake
+      
  #   - name: Docker build or not, set build env to ${{ matrix.BUILD_TARGET_IMAGE }}
  #     if: ${{ matrix.BUILD_TARGET_IMAGE != '' }}
  #     uses: docker://onbings/debian_stretch_builder:latest  #${{ matrix.BUILD_TARGET_IMAGE }}
@@ -85,7 +92,7 @@ jobs:
         echo "BUILD_INSTALL_DIR      $BUILD_INSTALL_DIR"
         echo "BUILD_ARTIFACT         $BUILD_ARTIFACT"
         cd ${{ env.BUILD_BIN_DIR }}
-        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_INSTALL_PREFIX=${{ env.BUILD_INSTALL_DIR }} ../..
+        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_INSTALL_PREFIX=${{ env.BUILD_INSTALL_DIR }} -DCMAKE_FIND_ROOT_PATH=${{ env.BUILD_INSTALL_DIR }} ../..
         cmake --build . --config ${{ env.BUILD_TYPE }}        
 
     - name: Test
